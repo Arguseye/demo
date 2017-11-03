@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+  <head>
+        <title>demo</title>
+        <style type="text/css">
+            html { height: 100% }
+            body { height: 100%; margin: 0; padding: 0 }
+            #map { height: 512px; width:512px; margin: 0 auto;}
+        </style>
+  </head>
+  <body>
+    <h3>My Google Maps Demo</h3>
+    <div id="map"></div>
+    <script src="../js/jquery.min.js"></script>
+    <script>
+
+        // https://stackoverflow.com/questions/8670859/highlight-whole-countries-in-google-maps
+        // https://fusiontables.google.com/data?docid=1N2LBk4JHwWpOY4d9fobIn27lfnZ5MDy-NoqqRpk&pli=1#rows:id=1 国家名字
+
+        // fusiontables文档?
+
+        // 地区国家对照
+        // https://groups.google.com/forum/#!topic/google-visualization-api/dgLrpuV-veg
+        var continent = {
+            Africa: [
+                'DZ', 'EG', 'EH', 'LY', 'MA', 'SD', 'TN',
+                'BF', 'BJ', 'CI', 'CV', 'GH', 'GM', 'GN', 'GW', 'LR', 'ML', 'MR', 'NE', 'NG', 'SH', 'SL', 'SN', 'TG',
+                'AO', 'CD', 'ZR', 'CF', 'CG', 'CM', 'GA', 'GQ', 'ST', 'TD',
+                'BI', 'DJ', 'ER', 'ET', 'KE', 'KM', 'MG', 'MU', 'MW', 'MZ', 'RE', 'RW', 'SC', 'SO', 'TZ', 'UG', 'YT', 'ZM', 'ZW',
+                'BW', 'LS', 'NA', 'SZ', 'ZA'
+            ],
+            Europe: [
+                'GG', 'IM', 'JE', 'AX', 'DK', 'EE', 'FI', 'FO', 'GB', 'IE', 'IM', 'IS', 'LT', 'LV', 'NO', 'SE', 'SJ',
+                'AT', 'BE', 'CH', 'DE', 'DD', 'FR', 'FX', 'LI', 'LU', 'MC', 'NL',
+                'BG', 'BY', 'CZ', 'HU', 'MD', 'PL', 'RO', 'RU', 'SU', 'SK', 'UA',
+                'AD', 'AL', 'BA', 'ES', 'GI', 'GR', 'HR', 'IT', 'ME', 'MK', 'MT', 'CS', 'RS', 'PT', 'SI', 'SM', 'VA', 'YU'
+            ],
+            Americas: [
+                'BM', 'CA', 'GL', 'PM', 'US',
+                'AG', 'AI', 'AN', 'AW', 'BB', 'BL', 'BS', 'CU', 'DM', 'DO', 'GD', 'GP', 'HT', 'JM', 'KN', 'KY', 'LC', 'MF', 'MQ', 'MS', 'PR', 'TC', 'TT', 'VC', 'VG', 'VI',
+                'BZ', 'CR', 'GT', 'HN', 'MX', 'NI', 'PA', 'SV',
+                'AR', 'BO', 'BR', 'CL', 'CO', 'EC', 'FK', 'GF', 'GY', 'PE', 'PY', 'SR', 'UY', 'VE'
+            ],
+            Asia: [
+                'TM', 'TJ', 'KG', 'KZ', 'UZ',
+                'CN', 'HK', 'JP', 'KP', 'KR', 'MN', 'MO', 'TW',
+                'AF', 'BD', 'BT', 'IN', 'IR', 'LK', 'MV', 'NP', 'PK',
+                'BN', 'ID', 'KH', 'LA', 'MM', 'BU', 'MY', 'PH', 'SG', 'TH', 'TL', 'TP', 'VN',
+                'AE', 'AM', 'AZ', 'BH', 'CY', 'GE', 'IL', 'IQ', 'JO', 'KW', 'LB', 'OM', 'PS', 'QA', 'SA', 'NT', 'SY', 'TR', 'YE', 'YD'
+            ],
+            Oceania: [
+                'AU', 'NF', 'NZ',
+                'FJ', 'NC', 'PG', 'SB', 'VU',
+                'FM', 'GU', 'KI', 'MH', 'MP', 'NR', 'PW',
+                'AS', 'CK', 'NU', 'PF', 'PN', 'TK', 'TO', 'TV', 'WF', 'WS'
+            ]
+        }
+
+        // 亚洲地理中心 https://en.wikipedia.org/wiki/Geographical_midpoint_of_Asia  52.4833 96.0858
+        var centerToContinent = {
+            Asia: {
+                lat: '52.4833',
+                lng: '96.0858'
+            }
+        };
+
+        var map,
+            zoom,
+            world_geometry;
+
+        var minZoomLevel = 1;
+
+        // 选择大陆 && FusionTablesLayer 图层点击 https://developers.google.com/maps/documentation/javascript/fusiontableslayer#constructing_a_fusiontables_layer
+        // https://stackoverflow.com/questions/8670859/highlight-whole-countries-in-google-maps
+        // https://fusiontables.google.com/data?docid=1N2LBk4JHwWpOY4d9fobIn27lfnZ5MDy-NoqqRpk&pli=1#rows:id=1
+        // https://stackoverflow.com/questions/10610697/how-to-override-kml-colors-in-google-map 颜色配置    
+        function selectCountry() {
+
+            world_geometry = new google.maps.FusionTablesLayer({
+                query: {
+                    select: 'geometry',
+                    from: '1N2LBk4JHwWpOY4d9fobIn27lfnZ5MDy-NoqqRpk',
+                    where: "ISO_2DIGIT IN ('CN', 'JP', 'KR')"
+                },
+                styles: [{
+                    polygonOptions: {
+                        fillColor: "#ffffff",
+                        strokeColor: "#bcbcbc",
+                        fillOpacity: ".2"
+                    }
+                }],
+                map: map,
+                suppressInfoWindows: true
+            });
+
+            google.maps.event.addListener(world_geometry, 'click', function () {
+                console.log('layer click');
+            });
+        }
+
+        function locationCoutry(country_short_name, cb) {
+            var geocoder = new google.maps.Geocoder();
+            
+            geocoder.geocode({ 
+                componentRestrictions: {
+                    country: country_short_name
+                }}, function(results, status) {
+
+                    var zoom = map.getZoom();
+                    if (status == google.maps.GeocoderStatus.OK) {
+
+                        if (zoom == 1) {
+                            var continent = centerToContinent.Asia;
+                            map.setCenter(new google.maps.LatLng(continent.lat, continent.lng));
+                            map.setZoom(2);
+                            selectCountry();
+                        } else if(zoom == 2) {
+                            map.setCenter(results[0].geometry.location);
+                            map.fitBounds(results[0].geometry.viewport);
+                        }
+                    }
+                });
+        }
+
+        // 点击的国家匹配洲
+        function lookForContinent(country_short_name) {
+
+            for (var c in continent) {
+                if (continent.hasOwnProperty(c)) {
+                    for (var i = 0; i < continent.c.length; i++) {
+                        if (country_short_name === continent.c[i]) {
+                            return c;
+                        }
+                    }
+                }
+            }
+
+            // 没有找到，额外处理。如定位到该国家，可能点到南极洲
+        }
+
+        // 选择 7 大洲
+        function showContinent() {
+            world_geometry = new google.maps.FusionTablesLayer({
+                query: {
+                    select: 'geometry',
+                    from: '1N2LBk4JHwWpOY4d9fobIn27lfnZ5MDy-NoqqRpk',
+                    where: "ISO_2DIGIT IN ('US', 'GB', 'DE', 'CN')" // 筛选国家
+                },
+                map: map,
+                suppressInfoWindows: true
+            });
+        }
+
+        function initMap() {
+
+            // init
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: new google.maps.LatLng(0, 0),
+                zoom: minZoomLevel,
+                minZoom: minZoomLevel
+            });
+
+            google.maps.event.addListener(map, 'click', function(evt) {
+                // console.log(evt)
+
+                console.log('**88')
+
+                var lat = evt.latLng.lat(),
+                    lng = evt.latLng.lng();
+
+                var url = 'http://maps.googleapis.com/maps/api/geocode/json?latlng=' + lat +',' + lng + '&sensor=false'
+
+                // TODO
+                // 有的时候，数据返回报错
+                // 区分单击和双击
+                $.getJSON(url, function(data) {
+                    var result = data.results[0].address_components;
+                    var country;
+
+                    for (var i = 0; i < result.length; i++) {
+                        if (result[i].types.indexOf('country') > -1) {
+                            country = result[i].short_name;
+                            break;
+                        }
+                    }
+
+                    // 显示洲，需要定位到洲的地方
+                    var isContinent = map.getZoom() == 1;
+
+                    console.log('点击的国家是：', country);
+
+                    // 根据zoom，判断是显示中间点
+                    locationCoutry(country, function(){
+                        console.log('定位国家结束');
+                    }, isContinent)
+                });
+            })
+
+            
+    
+        }
+    </script>
+    <script async defer
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDbweN-CeVqyOm10R357or0zmy6eQ-1aSM&callback=initMap">
+    </script>
+  </body>
+</html>
